@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name = 'ldrpremisbuilding',
-    description = "A set of functions for adding to premis records in the livePremis environment."
+    description = "A set of functions for adding to premis records in the livePremis environment.",
     long_description = readme(),
     version = '0.0.1dev',
     author = "Brian Balsamo, Tyler Danstrom",

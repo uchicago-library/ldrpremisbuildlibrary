@@ -1,0 +1,5 @@
+setup.py
+ldrpremisbuilding.egg-info/PKG-INFO
+ldrpremisbuilding.egg-info/SOURCES.txt
+ldrpremisbuilding.egg-info/dependency_links.txt
+ldrpremisbuilding.egg-info/top_level.txt

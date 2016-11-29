@@ -1,0 +1,19 @@
+Metadata-Version: 1.1
+Name: ldrpremisbuilding
+Version: 0.0.1.dev0
+Summary: A set of functions for adding to premis records in the livePremis environment.
+Home-page: UNKNOWN
+Author: Brian Balsamo, Tyler Danstrom
+Author-email: balsamo@uchicago.edu, tdanstrom@uchicago.edu
+License: UNKNOWN
+Description: # About
+        
+        These convenience functions should be used in whatever front-end system needs to manipulate PREMIS records 
+        
+Keywords: uchicago,repository,file-level,premis,utility
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: Unix
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
