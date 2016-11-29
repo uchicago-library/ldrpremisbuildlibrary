@@ -13,6 +13,7 @@ setup(
     version = '0.0.1dev',
     author = "Brian Balsamo, Tyler Danstrom",
     author_email = "balsamo@uchicago.edu, tdanstrom@uchicago.edu",
+    packages = ['ldrpremisbuilding'],
     keywords = [
         "uchicago",
         "repository",
