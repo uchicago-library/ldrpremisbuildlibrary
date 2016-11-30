@@ -4,6 +4,12 @@ from uuid import uuid4
 from pypremis.lib import PremisRecord
 from pypremis.nodes import *
 
+__AUTHOR__ = "Tyler Danstrom"
+__EMAIL__ = "tdanstrom@uchicago.edu"
+__VERSION__ = "1.0.0"
+__DESCRIPTION__ = "a module to use in a command line tool to find all premis records in longTermStorage and if not already in livePremis copy the file into livePremis"
+__COPYRIGHT__ = "University of Chicago, 2016"
+
 # start of premis node creation functions
 
 def build_fixity_premis_event(event_type, event_date, outcome_status, outcome_message, agent, objid):
@@ -106,6 +112,9 @@ def find_size_info_from_premis(object_chars):
     """
     return object_chars.get_size()
 
+def find_mimetype_from_premis(object_chars):
+    return objec_chars.get_format().get_formatDesignation().get_formatName()
+
 def find_objid_from_premis(premis_object):
     """a function the object identifier of a particular PremisRecord instance
 
@@ -113,6 +122,19 @@ def find_objid_from_premis(premis_object):
     1. premis_object (PremisRecord): an instance of pypremis.lib.PremisRecord
     """
     return premis_object.get_objectIdentifier()[0].get_objectIdentifierValue()
+
+def find_related_objects_from_premis(premis_object):
+    """a function to find related objects for a given premis record
+
+    __Args__
+    1. premis_record (PremisRecord): an instance of pypremis.node.Object
+    """
+    related_objects_list = []
+    for n_relationship in premis_object.get_relationship():
+        if n_relationship.get_relatedObjectIdentifier():
+            for n_related_object in n_relationship.get_relatedObjectIdentifier():
+                related_objects_list.append(n_related_object.get_relatedObjectIdentifierValue())
+   return related_object_list
 
 def extract_identity_data_from_premis_record(premis_file):
     """a function to extract data needed to run a fixity check from a particular premis xml file
@@ -125,17 +147,20 @@ def extract_identity_data_from_premis_record(premis_file):
         """a function to return a data transfer object for extracting identity data
            from a particular PremisRecord instance
         """
-        return namedtuple("premis_data", "content_loc premis_record objid file_size fixity_to_test events_list")\
-                         (content_loc, this_record, objid, int(file_size), fixity_digest, events)
+        return namedtuple("premis_data", "content_loc premis_record objid file_size fixity_to_test mimetype events_list related_objects")\
+                         (content_loc, this_record, objid, int(file_size), fixity_digest, events, related_objects)
     this_record = open_premis_record(premis_file)
     this_object = this_record.get_object_list()[0]
     the_characteristics = find_object_characteristics_from_premis(this_object)
     objid = find_objid_from_premis(this_object)
     file_size = find_size_info_from_premis(the_characteristics)
+    file_mimetype = find_mimetype_from_premis(the_characteristics)
     fixity_digest = find_fixities_from_premis(the_characteristics, 'md5')
     content_loc = this_object.get_storage()[0].get_contentLocation().get_contentLocationValue()
     events = get_events_from_a_premis_record(this_record)
-    data = premis_data_packager(content_loc, this_record, objid, int(file_size), fixity_digest, events)
+    related_objects = find_related_objects_from_premis(this_object)
+    data = premis_data_packager(content_loc, this_record, objid, int(file_size), fixity_digest,
+                                file_mimetype, events, related_objects)
     return data
 
 def find_particular_event(event_list, event_string):
