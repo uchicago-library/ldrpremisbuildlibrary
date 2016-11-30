@@ -12,7 +12,7 @@ __COPYRIGHT__ = "University of Chicago, 2016"
 
 # start of premis node creation functions
 
-def build_fixity_premis_event(event_type, event_date, outcome_status, outcome_message, agent, objid):
+def build_a_premis_event(event_type, event_date, outcome_status, outcome_message, agent, objid):
     """a function to generate a minimal PREMIS event record
 
     __Args__
@@ -29,7 +29,7 @@ def build_fixity_premis_event(event_type, event_date, outcome_status, outcome_me
     linkedAgent = LinkingAgentIdentifier("DOI", str(uuid4()))
     event_detail = EventOutcomeDetail(eventOutcomeDetailNote=outcome_message)
     event_outcome = EventOutcomeInformation(outcome_status, event_detail)
-    new_event = Event(event_id, "fixity check", event_date)
+    new_event = Event(event_id, event_type, event_date)
     new_event.set_linkingAgentIdentifier(linkedAgent)
     new_event.set_eventOutcomeInformation(event_outcome)
     new_event.set_linkingObjectIdentifier(linkedObject)
@@ -113,7 +113,7 @@ def find_size_info_from_premis(object_chars):
     return object_chars.get_size()
 
 def find_mimetype_from_premis(object_chars):
-    return objec_chars.get_format().get_formatDesignation().get_formatName()
+    return object_chars.get_format()[0].get_formatDesignation().get_formatName()
 
 def find_objid_from_premis(premis_object):
     """a function the object identifier of a particular PremisRecord instance
@@ -130,11 +130,15 @@ def find_related_objects_from_premis(premis_object):
     1. premis_record (PremisRecord): an instance of pypremis.node.Object
     """
     related_objects_list = []
-    for n_relationship in premis_object.get_relationship():
+    try:
+        relationships = premis_object.get_relationship()
+    except KeyError:
+        return []
+    for n_relationship in relationships:
         if n_relationship.get_relatedObjectIdentifier():
             for n_related_object in n_relationship.get_relatedObjectIdentifier():
                 related_objects_list.append(n_related_object.get_relatedObjectIdentifierValue())
-   return related_object_list
+    return related_object_list
 
 def extract_identity_data_from_premis_record(premis_file):
     """a function to extract data needed to run a fixity check from a particular premis xml file
@@ -143,12 +147,12 @@ def extract_identity_data_from_premis_record(premis_file):
     1. premis_file (str or PremisRecord): a string pointing to a premis record on-disk or
     an instance of a PremisRecord
     """
-    def premis_data_packager(content_loc, this_record, objid, file_size, fixity_digest, events):
+    def premis_data_packager(content_loc, this_record, objid, file_size, fixity_digest, mimetype, events, related_objects):
         """a function to return a data transfer object for extracting identity data
            from a particular PremisRecord instance
         """
         return namedtuple("premis_data", "content_loc premis_record objid file_size fixity_to_test mimetype events_list related_objects")\
-                         (content_loc, this_record, objid, int(file_size), fixity_digest, events, related_objects)
+                         (content_loc, this_record, objid, int(file_size), fixity_digest, mimetype, events, related_objects)
     this_record = open_premis_record(premis_file)
     this_object = this_record.get_object_list()[0]
     the_characteristics = find_object_characteristics_from_premis(this_object)

@@ -2,3 +2,4 @@
 ldrwatchdog.egg-info/*
 dist/*
 build/*
+*test*
