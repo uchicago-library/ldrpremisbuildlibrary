@@ -1,7 +1,9 @@
 
 from collections import namedtuple
-from os.path import join
+from os import makedirs
+from os.path import abspath, dirname, exists, join
 from uuid import uuid4
+from sys import stderr
 
 from pypairtree.utils import identifier_to_path
 from pypremis.lib import PremisRecord
@@ -83,22 +85,45 @@ def open_premis_record(premis_file_path):
 # end of premis loading and writing functions
 # start of premis record creation functions
 
-def create_new_premis_agent(agents_root, dto):
+def write_out_a_complete_file_tree(directory_string):
+    """a function to write out a complete directory hierarchy to disk
+
+    ___Args__
+    1. directory_string (str): a string representing a path that needs to be written to disk
+    """
+    if abspath(directory_string) == directory_string:
+        directory_string = directory_string[1:]
+    new_output = "/"
+    for n_part in directory_string.split("/"):
+        new_output = join(new_output, n_part)
+        if exists(new_output):
+            pass
+        else:
+            makedirs(new_output, exist_ok=True)
+    return True
+
+def create_new_premis_agent(agents_root, dto, edit_identifier=None):
     """a function to create a new PREMIS record for an agent
 
     __Args__
     1. agents_root (str): a string that is a valid path to agent records in livePremis
     2. dto (AgentDataTransferObject): an object to pass Agent data from an api this function
     """
-    identifier = uuid4().hex
-    pairtreee_identifier = str(identifier_to_path(identifier))
-    path_to_new_agent_record = join(agents_root, pairtreee_identifier, "arf", "agent.xml")
+    if edit_identifier:
+        identifier = edit_identifier
+        pairtree_identifier = path_to_identifier(edit_identifier)
+    else:
+        identifier = uuid4().hex
+        pairtreee_identifier = str(identifier_to_path(identifier))
+    path_to_new_agent_record = join(agents_root, pairtreee_identifier, "prf", "agent.xml")
     agent_id = AgentIdentifier("DOI", identifier)
     new_agent = Agent(agent_id)
     new_agent.set_agentType(dto.type)
     new_agent.set_agentName(dto.name)
     new_record = PremisRecord(agents=[new_agent])
+    write_out_a_complete_file_tree(dirname(path_to_new_agent_record))
     new_record.write_to_file(path_to_new_agent_record)
+    return identifier
 
 # end of premis record creation functions
 
@@ -201,14 +226,16 @@ def extract_core_information_agent_record(premis_file):
 
     this_record = open_premis_record(premis_file)
     this_agent = this_record.get_agent_list()[0]
+    stderr.write(str(this_agent))
     agent_identifier = this_agent.get_agentIdentifier()[0].get_agentIdentifierValue()
     agent_type = this_agent.get_agentType()
-    agent_name = this_agent.getAgentName()
-    agent_events = [x.get_linkingEventIdentifierValue()
-                    for x in  this_agent.get_linkingEventIdentifier()]
+    agent_name = this_agent.get_agentName()
+    try:
+        agent_events = this_agent.get_linkingEventIdentifier()
+    except KeyError:
+        agent_events = []
     data = data_packager()
     return data
-     
 
 def find_particular_event(event_list, event_string):
     """a function to seek out a particular type of event from a list of events in a PremisRecord
