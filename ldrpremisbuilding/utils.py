@@ -1,6 +1,9 @@
+
 from collections import namedtuple
+from os.path import join
 from uuid import uuid4
 
+from pypairtree.utils import identifier_to_path
 from pypremis.lib import PremisRecord
 from pypremis.nodes import *
 
@@ -78,6 +81,26 @@ def open_premis_record(premis_file_path):
     return output
 
 # end of premis loading and writing functions
+# start of premis record creation functions
+
+def create_new_premis_agent(agents_root, dto):
+    """a function to create a new PREMIS record for an agent
+
+    __Args__
+    1. agents_root (str): a string that is a valid path to agent records in livePremis
+    2. dto (AgentDataTransferObject): an object to pass Agent data from an api this function
+    """
+    identifier = uuid4().hex
+    pairtreee_identifier = str(identifier_to_path(identifier))
+    path_to_new_agent_record = join(agents_root, pairtreee_identifier, "arf", "agent.xml")
+    agent_id = AgentIdentifier("DOI", identifier)
+    new_agent = Agent(agent_id)
+    new_agent.set_agentType(dto.type)
+    new_agent.set_agentName(dto.name)
+    new_record = PremisRecord(agents=[new_agent])
+    new_record.write_to_file(path_to_new_agent_record)
+
+# end of premis record creation functions
 
 # start of premis searchiing functions
 
@@ -138,7 +161,7 @@ def find_related_objects_from_premis(premis_object):
         if n_relationship.get_relatedObjectIdentifier():
             for n_related_object in n_relationship.get_relatedObjectIdentifier():
                 related_objects_list.append(n_related_object.get_relatedObjectIdentifierValue())
-    return related_object_list
+    return related_objects_list
 
 def extract_identity_data_from_premis_record(premis_file):
     """a function to extract data needed to run a fixity check from a particular premis xml file
@@ -147,12 +170,16 @@ def extract_identity_data_from_premis_record(premis_file):
     1. premis_file (str or PremisRecord): a string pointing to a premis record on-disk or
     an instance of a PremisRecord
     """
-    def premis_data_packager(content_loc, this_record, objid, file_size, fixity_digest, mimetype, events, related_objects):
+    def premis_data_packager(content_loc, this_record, objid, file_size, fixity_digest,
+                             mimetype, events, related_objects):
         """a function to return a data transfer object for extracting identity data
            from a particular PremisRecord instance
         """
-        return namedtuple("premis_data", "content_loc premis_record objid file_size fixity_to_test mimetype events_list related_objects")\
-                         (content_loc, this_record, objid, int(file_size), fixity_digest, mimetype, events, related_objects)
+        return namedtuple("premis_data",
+                          "content_loc premis_record objid file_size fixity_to_test " + \
+                          "mimetype events_list related_objects")\
+                         (content_loc, this_record, objid, int(file_size), fixity_digest,
+                          mimetype, events, related_objects)
     this_record = open_premis_record(premis_file)
     this_object = this_record.get_object_list()[0]
     the_characteristics = find_object_characteristics_from_premis(this_object)
@@ -166,6 +193,22 @@ def extract_identity_data_from_premis_record(premis_file):
     data = premis_data_packager(content_loc, this_record, objid, int(file_size), fixity_digest,
                                 file_mimetype, events, related_objects)
     return data
+
+def extract_core_information_agent_record(premis_file):
+    def data_packager():
+        return namedtuple("agent_data", "name identifier type events")\
+        (agent_name, agent_identifier, agent_type, agent_events)
+
+    this_record = open_premis_record(premis_file)
+    this_agent = this_record.get_agent_list()[0]
+    agent_identifier = this_agent.get_agentIdentifier()[0].get_agentIdentifierValue()
+    agent_type = this_agent.get_agentType()
+    agent_name = this_agent.getAgentName()
+    agent_events = [x.get_linkingEventIdentifierValue()
+                    for x in  this_agent.get_linkingEventIdentifier()]
+    data = data_packager()
+    return data
+     
 
 def find_particular_event(event_list, event_string):
     """a function to seek out a particular type of event from a list of events in a PremisRecord
