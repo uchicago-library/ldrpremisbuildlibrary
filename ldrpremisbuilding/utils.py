@@ -15,6 +15,22 @@ __VERSION__ = "1.0.0"
 __DESCRIPTION__ = "a module to use in a command line tool to find all premis records in longTermStorage and if not already in livePremis copy the file into livePremis"
 __COPYRIGHT__ = "University of Chicago, 2016"
 
+def write_out_a_complete_file_tree(directory_string):
+    """a function to write out a complete directory hierarchy to disk
+    ___Args__
+    1. directory_string (str): a string representing a path that needs to be written to disk
+    """
+    if abspath(directory_string) == directory_string:
+        directory_string = directory_string[1:]
+    new_output = "/"
+    for n_part in directory_string.split("/"):
+        new_output = join(new_output, n_part)
+        if exists(new_output):
+            pass
+        else:
+            makedirs(new_output, exist_ok=True)
+    return True
+
 # start of premis node creation functions
 
 def build_a_premis_event(event_type, event_date, outcome_status, outcome_message, agent, objid):
@@ -40,19 +56,6 @@ def build_a_premis_event(event_type, event_date, outcome_status, outcome_message
     new_event.set_linkingObjectIdentifier(linkedObject)
     return new_event
 
-def add_event_to_a_premis_record(premis_record, an_event):
-    """a function to add a PREMIS event to a particular premis record
-
-    __Args__
-    1. premis_record (PremisRecord) an instance of pyremis.lib.PremisRecord
-    2. an_event (Event): an instance of pypremis.nodes.Event
-    """
-    try:
-        premis_record.add_event(an_event)
-        return True
-    except ValueError:
-        return False
-
 # end of premis node creation functions
 
 # start of premis loading and writing functions 
@@ -64,9 +67,8 @@ def write_a_premis_record(premis_record, file_path):
     2. file_path (str): a string representing a valid location on-disk
     """
     try:
-        print(file_path)
         premis_record.write_to_file(file_path)
-    except Except as e:
+    except Exception as e:
         raise(e)
 
 def open_premis_record(premis_file_path):
@@ -85,45 +87,77 @@ def open_premis_record(premis_file_path):
 # end of premis loading and writing functions
 # start of premis record creation functions
 
-def write_out_a_complete_file_tree(directory_string):
-    """a function to write out a complete directory hierarchy to disk
+def create_agent_path(dto, identifier):
+    path = join(dto.root, str(identifier_to_path(identifier)), "prf", "agent.xml")
+    print(path)
+    return path
 
-    ___Args__
-    1. directory_string (str): a string representing a path that needs to be written to disk
-    """
-    if abspath(directory_string) == directory_string:
-        directory_string = directory_string[1:]
-    new_output = "/"
-    for n_part in directory_string.split("/"):
-        new_output = join(new_output, n_part)
-        if exists(new_output):
-            pass
-        else:
-            makedirs(new_output, exist_ok=True)
-    return True
+def create_a_new_premis_agent(dto):
+    identifier = uuid4().hex
+    path_to_agent = create_agent_path(dto, identifier)
+    id_node = AgentIdentifier("DOI", identifier)
+    new_agent = Agent(id_node)
+    new_agent.set_agentType(dto.type)
+    new_agent.set_agentName(dto.name)
+    new_record = PremisRecord(agents=[new_agent])
+    try:
+        write_out_a_complete_file_tree(dirname(path_to_agent))
+        write_a_premis_record(new_record, path_to_agent)
+        return (True, identifier)
+    except IOError:
+        return (False, None)
 
-def create_new_premis_agent(agents_root, dto, edit_identifier=None):
+def edit_a_premis_agent(dto):
+    identifier = dto.identifier
+    pairtree_identifier = str(identifier_to_path(identifier))
+    path_to_agent_record = create_agent_path(dto, identifier)
+    record_to_edit = PremisRecord(frompath=path_to_agent_record)
+    agents_list = record_to_edit.get_agent_list()
+    agent_node = agents_list[0]
+    print(dto.edit_fields)
+    for n_field in dto.edit_fields:
+        if n_field == "name":
+            agent_node.set_agentName(getattr(dto, n_field))
+        elif n_field == "type":
+            agent_node.set_agentType(getattr(dto, n_field))
+    agent_list = [agent_node]
+    record_to_edit = PremisRecord(agents=agent_list)
+    try:
+        write_a_premis_record(record_to_edit, path_to_agent_record)
+        return (True, identifier)
+    except IOError:
+        return (False, None)
+
+def create_or_edit_an_agent_record(dto):
     """a function to create a new PREMIS record for an agent
 
     __Args__
     1. agents_root (str): a string that is a valid path to agent records in livePremis
     2. dto (AgentDataTransferObject): an object to pass Agent data from an api this function
     """
-    if edit_identifier:
-        identifier = edit_identifier
-        pairtree_identifier = path_to_identifier(edit_identifier)
+    if not dto.identifier:
+        return create_a_new_premis_agent(dto)
     else:
-        identifier = uuid4().hex
-        pairtreee_identifier = str(identifier_to_path(identifier))
-    path_to_new_agent_record = join(agents_root, pairtreee_identifier, "prf", "agent.xml")
-    agent_id = AgentIdentifier("DOI", identifier)
-    new_agent = Agent(agent_id)
-    new_agent.set_agentType(dto.type)
-    new_agent.set_agentName(dto.name)
-    new_record = PremisRecord(agents=[new_agent])
-    write_out_a_complete_file_tree(dirname(path_to_new_agent_record))
-    new_record.write_to_file(path_to_new_agent_record)
-    return identifier
+        return edit_a_premis_agent(dto)
+
+def add_event_to_a_premis_agent(dto):
+    """a function to add a PREMIS event to a particular premis record
+
+    __Args__
+    1. premis_record (PremisRecord) an instance of pyremis.lib.PremisRecord
+    2. an_event (Event): an instance of pypremis.nodes.Event
+    """
+    path_to_agent_record = join(dto.root, str(identifier_to_path(dto.identifier)), "prf", "agent.xml")
+    record_to_edit = PremisRecord(frompath=path_to_agent_record)
+    agents = record_to_edit.get_agent_list()
+    agent = agents[0]
+    stderr.write(dto.event)
+    new_linked_event = LinkingEventIdentifier("DOI", dto.event)
+    stderr.write(str(new_linked_event))
+    agent.add_linkingEventIdentifier(new_linked_event)
+    records_to_edit = PremisRecord(agents=[agent])
+    write_a_premis_record(record_to_edit, path_to_agent_record)
+    return True
 
 # end of premis record creation functions
 
@@ -143,7 +177,7 @@ def find_fixities_from_premis(object_chars, digest_algo_filter):
 
     __Args__
     1. object_chars (list): a list of pypremis.nodes.ObjectCharacteristic nodes
-    2. digest_algo_filter (str): a string label for a particular digest
+       digest_algo_filter (str): a string label for a particular digest
        algorithm that needs to be found
     """
     obj_fixiites = object_chars.get_fixity()
@@ -226,12 +260,12 @@ def extract_core_information_agent_record(premis_file):
 
     this_record = open_premis_record(premis_file)
     this_agent = this_record.get_agent_list()[0]
-    stderr.write(str(this_agent))
     agent_identifier = this_agent.get_agentIdentifier()[0].get_agentIdentifierValue()
     agent_type = this_agent.get_agentType()
-    agent_name = this_agent.get_agentName()
+    agent_name = this_agent.get_agentName()[0]
     try:
-        agent_events = this_agent.get_linkingEventIdentifier()
+        agent_events = [x.get_linkingEventIdentifierValue()
+                        for x in  this_agent.get_linkingEventIdentifier()]
     except KeyError:
         agent_events = []
     data = data_packager()
