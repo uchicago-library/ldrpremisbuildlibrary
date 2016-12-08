@@ -140,6 +140,16 @@ def create_or_edit_an_agent_record(dto):
     else:
         return edit_a_premis_agent(dto)
 
+def add_event_to_premis_record(path_to_record, new_event):
+    try:
+        the_record = PremisRecord(frompath=path_to_record)
+        the_record.add_event(new_event)
+        the_record.write_to_file(path_to_record)
+        return True
+    except Excception as e:
+        return False
+
+
 def add_event_to_a_premis_agent(dto):
     """a function to add a PREMIS event to a particular premis record
 
