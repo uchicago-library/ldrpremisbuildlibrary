@@ -9,6 +9,8 @@ from pypairtree.utils import identifier_to_path
 from pypremis.lib import PremisRecord
 from pypremis.nodes import *
 
+from .premis_apis import get_an_agent_identifier
+
 __AUTHOR__ = "Tyler Danstrom"
 __EMAIL__ = "tdanstrom@uchicago.edu"
 __VERSION__ = "1.0.0"
@@ -33,7 +35,7 @@ def write_out_a_complete_file_tree(directory_string):
 
 # start of premis node creation functions
 
-def build_a_premis_event(event_type, event_date, outcome_status, outcome_message, agent, objid):
+def build_a_premis_event(event_type, event_date, outcome_status, outcome_message, agent, objid, agent_type=None):
     """a function to generate a minimal PREMIS event record
 
     __Args__
@@ -45,15 +47,18 @@ def build_a_premis_event(event_type, event_date, outcome_status, outcome_message
     5. agent (str): the official name for the agent that performed this event
     6. objid (str): the PREMIS identifier for the object that this event occurred on
     """
-    event_id = EventIdentifier("DOI", str(uuid4()))
-    linkedObject = LinkingObjectIdentifier("DOI", objid)
-    linkedAgent = LinkingAgentIdentifier("DOI", str(uuid4()))
-    event_detail = EventOutcomeDetail(eventOutcomeDetailNote=outcome_message)
-    event_outcome = EventOutcomeInformation(outcome_status, event_detail)
-    new_event = Event(event_id, event_type, event_date)
-    new_event.set_linkingAgentIdentifier(linkedAgent)
-    new_event.set_eventOutcomeInformation(event_outcome)
-    new_event.set_linkingObjectIdentifier(linkedObject)
+    new_event = None
+    agent_id = get_an_agent_identifier(agent, agent_type=agent_type)
+    if agent_id:
+        event_id = EventIdentifier("DOI", str(uuid4()))
+        linkedObject = LinkingObjectIdentifier("DOI", objid)
+        linkedAgent = LinkingAgentIdentifier("DOI", agent_id)
+        event_detail = EventOutcomeDetail(eventOutcomeDetailNote=outcome_message)
+        event_outcome = EventOutcomeInformation(outcome_status, event_detail)
+        new_event = Event(event_id, event_type, event_date)
+        new_event.set_linkingAgentIdentifier(linkedAgent)
+        new_event.set_eventOutcomeInformation(event_outcome)
+        new_event.set_linkingObjectIdentifier(linkedObject)
     return new_event
 
 # end of premis node creation functions
@@ -89,7 +94,6 @@ def open_premis_record(premis_file_path):
 
 def create_agent_path(dto, identifier):
     path = join(dto.root, str(identifier_to_path(identifier)), "prf", "agent.xml")
-    print(path)
     return path
 
 def create_a_new_premis_agent(dto):
@@ -114,7 +118,6 @@ def edit_a_premis_agent(dto):
     record_to_edit = PremisRecord(frompath=path_to_agent_record)
     agents_list = record_to_edit.get_agent_list()
     agent_node = agents_list[0]
-    print(dto.edit_fields)
     for n_field in dto.edit_fields:
         if n_field == "name":
             agent_node.set_agentName(getattr(dto, n_field))
@@ -141,14 +144,12 @@ def create_or_edit_an_agent_record(dto):
         return edit_a_premis_agent(dto)
 
 def add_event_to_premis_record(path_to_record, new_event):
-    try:
-        the_record = PremisRecord(frompath=path_to_record)
-        the_record.add_event(new_event)
-        the_record.write_to_file(path_to_record)
-        return True
-    except Excception as e:
-        return False
-
+    the_record = PremisRecord(frompath=path_to_record)
+    the_record.add_event(new_event)
+    print(path_to_record)
+    print(the_record)
+    the_record.write_to_file(path_to_record)
+    return True
 
 def add_event_to_a_premis_agent(dto):
     """a function to add a PREMIS event to a particular premis record

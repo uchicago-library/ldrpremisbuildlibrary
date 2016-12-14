@@ -1,4 +1,4 @@
-
+from sys import stderr
 from collections import namedtuple
 from json import dumps, loads
 import requests
@@ -47,11 +47,14 @@ def does_this_agent_exist(term):
         return (False, None)
 
 def package_post_data_for_new_agent(agent_name, agent_type):
-   output = {"fields":["name", "type"], "name":agent_name, "type":agent_type}
-   return dumps(output).encode('utf-8')
+    output = {"fields":["name", "type"], "name":agent_name, "type":agent_type}
+    return dumps(output).encode('utf-8')
+
+def package_post_data_for_new_linked_event(eventid):
+    output = {"event":eventid}
+    return dumps(output).encode('utf-8')
 
 def create_an_agent(agent_name, agent_type):
-    print(agent_name)
     check = does_this_agent_exist(agent_name)
     if not check[0]:
         the_url = construct_url_to_all_agents()
@@ -63,7 +66,7 @@ def create_an_agent(agent_name, agent_type):
         else:
             return (False, None)
     else:
-        return (True, check[1])
+        return (False, None)
 
 def add_event_to_an_agent(event_id, identifier=None, agent_name=None):
     if agent_name:
@@ -75,8 +78,19 @@ def add_event_to_an_agent(event_id, identifier=None, agent_name=None):
     elif identifer:
         agent_id = identifier.strip()
     url = construct_url_to_agent_events(agent_id)
+    package_post_data_for_new_linked_event(event_id)
     return url
 
-if __name__ == "__main__":
-    new_agent = add_event_to_an_agent("foo", agent_name="tdanstrom")
-    print(new_agent)
+def get_an_agent_identifier(agent_name, agent_type=None):
+    check = does_this_agent_exist(agent_name)
+    stderr.write(str(check))
+    if check[0] and len(check[1]) == 1:
+        return check[1][0].identifier
+    elif not check[0] and agent_type:
+        out = create_an_agent(agent_name, agent_type)[1]
+        if out.get("status") == "success":
+            return out.get("data").get("agents").get("identifier")
+        else:
+            return None
+    else:
+        return None
